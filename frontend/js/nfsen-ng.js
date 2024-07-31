@@ -996,118 +996,121 @@ $(document).ready(function() {
         return parts.join(".");
     }
 
-    /**
-     * parses the provided data, converts it into a better suitable format and populates a html table
-     * @param data
-     * @param status
-     * @returns boolean
-     */
-    function render_table(data, status) {
-        if (status === 'success') {
-            footable_data = data;
+/**
+ * Parses the provided data, converts it into a better suitable format and populates an HTML table
+ * @param data
+ * @param status
+ * @returns boolean
+ */
+function render_table(data, status) {
+    if (status !== 'success') {
+        setButtonLoading($('#filterCommands').find('.submit'), false);
+        return false;
+    }
 
-            // print nfdump command
-            if (typeof data[0] === 'string') {
-                display_message('success', '<b>nfdump command:</b> ' + data[0].toString())
-            }
+    footable_data = data;
 
-            // return if invalid data got returned
-            if (typeof data[1] !== 'object') {
-                display_message('warning', '<b>something went wrong.</b> ' + data[1].toString());
-                return false;
-            }
+    // Print nfdump command
+    if (typeof data[0] === 'string') {
+        display_message('success', '<b>nfdump command:</b> ' + data[0].toString());
+    }
 
-            // generate table header
-            var tempcolumns = data[1],
-                columns = [];
+    // Return if invalid data got returned
+    if (typeof data[1] !== 'string' || typeof data[2] !== 'string') {
+        display_message('warning', '<b>Something went wrong.</b> ' + data[1].toString());
+        return false;
+    }
 
-            // generate column definitions
-            $.each(tempcolumns, function (i, val) {
-                // todo optimize breakpoints
-                var title = (val === 'val') ? api_statistics_options.title : nfdump_translation[val],
-                    column = {
-                        name: val,
-                        title: title,
-                        type: 'text',
-                        breakpoints: 'xs sm',
-                    };
+    // Generate table header
+    var tempcolumns = data[1].split(','),
+        columns = [];
 
-                // add formatter for ip addresses
-                if (['sa', 'da'].indexOf(val) !== -1 || val.match(/ip$/i)) {
-                    column['formatter'] = (ip) => "<a href='#' onclick='return ip_link_handler(this)'>" + ip + "</a>";
-                }
+    // Generate column definitions
+    $.each(tempcolumns, function (i, val) {
+        // Todo optimize breakpoints
+        var title = (val === 'val') ? api_statistics_options.title : nfdump_translation[val] || val,
+            column = {
+                name: val,
+                title: title,
+                type: 'text',
+                breakpoints: 'xs sm'
+            };
 
-                // todo add date formatter for timestamps?
-                if (['ts', 'te', 'tr'].indexOf(val) !== -1) {
-                    column['breakpoints'] = '';
-                    column['type'] = 'text'; // 'date' needs moment.js library...
-                }
-
-                // add formatter for bytes
-                if (['ibyt', 'obyt', 'bpp', 'bps', 'byt', 'ibps', 'obps', 'ibpp', 'obpp'].indexOf(val) !== -1) {
-                    column['type'] = 'number';
-                    column['formatter'] = (x) => filesize(x, {
-                        base: 10, // todo make configurable
-                    });
-                }
-
-                // add formatter for big numbers
-                if (['td', 'fl', 'pkt', 'ipkt', 'opkt', 'ipps', 'opps'].indexOf(val) !== -1) {
-                    column['type'] = 'number';
-                    column['formatter'] = numberWithCommas
-                }
-
-                // define rest of numbers
-                if (['sp', 'dp', 'flP', 'ipktP', 'opktP', 'ibytP', 'obytP', 'pktP', 'bytP'].indexOf(val) !== -1) {
-                    column['type'] = 'number';
-                }
-
-                // ip addresses, protocol, value should not be hidden on small screens
-                if (['sa', 'da', 'pr', 'val'].indexOf(val) !== -1) {
-                    column['breakpoints'] = '';
-                }
-
-                // least important columns should be hidden on small screens
-                if (['flg', 'fwd', 'in', 'out', 'sas', 'das'].indexOf(val) !== -1) {
-                    column['breakpoints'] = 'all';
-                    column['type'] = 'text';
-                }
-
-                // add column to columns array
-                columns.push(column);
-            });
-
-            // generate table data
-            var temprows = data.slice(2),
-                rows = [];
-
-            $.each(temprows, function (i, val) {
-                var row = {id: i};
-
-                $.each(val, function (j, col) {
-                    row[tempcolumns[j]] = col;
-                });
-
-                rows.push(row);
-            });
-
-            // init footable
-            $('table.table:visible').footable({
-                columns: columns,
-                rows: rows
-            });
-
-            if (rows.length > 0) $('table.table:visible .footable-empty').remove();
-
-            // remove errors (except success)
-            $('#error').find('div.alert:not(.alert-success)').fadeOut(1500, function () {
-                $(this).remove();
-            });
+        // Add formatter for IP addresses
+        if (['srcAddr', 'dstAddr'].indexOf(val) !== -1) {
+            column['formatter'] = (ip) => "<a href='#' onclick='return ip_link_handler(this)'>" + ip + "</a>";
         }
 
-        // reset button label
-        setButtonLoading($('#filterCommands').find('.submit'), false);
+        // Todo add date formatter for timestamps
+        if (['firstSeen', 'lastSeen'].indexOf(val) !== -1) {
+            column['type'] = 'date';
+            column['breakpoints'] = '';
+        }
+
+        // Add formatter for bytes
+        if (['bytes', 'inBytes', 'outBytes'].indexOf(val) !== -1) {
+            column['type'] = 'number';
+            column['formatter'] = (x) => filesize(x, {base: 10});
+        }
+
+        // Add formatter for big numbers
+        if (['packets', 'flows'].indexOf(val) !== -1) {
+            column['type'] = 'number';
+            column['formatter'] = numberWithCommas;
+        }
+
+        // Define rest of numbers
+        if (['srcPort', 'dstPort'].indexOf(val) !== -1) {
+            column['type'] = 'number';
+        }
+
+        // IP addresses, protocol, value should not be hidden on small screens
+        if (['srcAddr', 'dstAddr', 'proto'].indexOf(val) !== -1) {
+            column['breakpoints'] = '';
+        }
+
+        // Least important columns should be hidden on small screens
+        if (['flags', 'tos', 'inIf', 'outIf'].indexOf(val) !== -1) {
+            column['breakpoints'] = 'all';
+        }
+
+        // Add column to columns array
+        columns.push(column);
+    });
+
+    // Generate table data
+    var temprows = data.slice(2),
+        rows = [];
+
+    $.each(temprows, function (i, val) {
+        var row = {id: i},
+            colData = val.split(',');
+
+        $.each(colData, function (j, col) {
+            row[tempcolumns[j]] = col;
+        });
+
+        rows.push(row);
+    });
+
+    // Init FooTable
+    $('table.table:visible').footable({
+        columns: columns,
+        rows: rows
+    });
+
+    if (rows.length > 0) {
+        $('table.table:visible .footable-empty').remove();
     }
+
+    // Remove errors (except success)
+    $('#error').find('div.alert:not(.alert-success)').fadeOut(1500, function () {
+        $(this).remove();
+    });
+
+    // Reset button label
+    setButtonLoading($('#filterCommands').find('.submit'), false);
+}
 
 
     /**
